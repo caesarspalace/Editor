@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.Menu?>
+<?import javafx.scene.control.MenuBar?>
+<?import javafx.scene.control.MenuItem?>
+<?import javafx.scene.control.TabPane?>
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox prefHeight="600.0" prefWidth="850.0" xmlns="http://javafx.com/javafx/17" xmlns:fx="http://javafx.com/fxml/1" fx:controller="com.editor.controller.EditorController">
+    <children>
+        <MenuBar>
+            <menus>
+                <Menu mnemonicParsing="false" text="Archivo">
+                    <items>
+                        <MenuItem mnemonicParsing="false" onAction="#handleNew" text="Nuevo" />
+                        <MenuItem mnemonicParsing="false" onAction="#handleOpen" text="Abrir..." />
+                        <MenuItem mnemonicParsing="false" onAction="#handleSave" text="Guardar" />
+                        <MenuItem mnemonicParsing="false" onAction="#handleSaveAs" text="Guardar como..." />
+                        <MenuItem mnemonicParsing="false" onAction="#handleSavePlainText" text="Guardar texto plano..." />
+                        <MenuItem mnemonicParsing="false" onAction="#handlePrint" text="Imprimir..." />
+                    </items>
+                </Menu>
+                <Menu mnemonicParsing="false" text="Editar">
+                    <items>
+                        <MenuItem mnemonicParsing="false" onAction="#handleFind" text="Buscar..." />
+                        <MenuItem mnemonicParsing="false" onAction="#handleReplace" text="Reemplazar..." />
+                    </items>
+                </Menu>
+            </menus>
+        </MenuBar>
+        
+        <!-- Barra de herramientas de Estilos -->
+        <HBox alignment="CENTER_LEFT" spacing="10.0" style="-fx-background-color: #f4f4f4; -fx-padding: 5;">
+            <children>
+                <Label text="Fuente:" />
+                <ComboBox fx:id="fontFamilyCombo" prefWidth="180.0" />
+                
+                <Label text="Tamaño:" />
+                <TextField fx:id="fontSizeField" prefWidth="60.0" text="14" />
+                
+                <Label text="Color:" />
+                <ComboBox fx:id="fontColorCombo" prefWidth="120.0" />
+            </children>
+            <padding>
+                <Insets bottom="5.0" left="10.0" right="10.0" top="5.0" />
+            </padding>
+        </HBox>
+
+        <TabPane fx:id="tabPane" VBox.vgrow="ALWAYS" />
+    </children>
+</VBox>

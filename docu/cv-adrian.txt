@@ -1,0 +1,51 @@
+Hoja de Vida.
+
+Datos personales
+----------------
+
+Nombre: Adrian Tabak
+CUIL: 23-21059799-9
+Direccion: Yatay 474, CABA, 1184.
+Fecha de Nacimiento: 01-09-1969
+Telefono: 11 5501-0632
+
+Estudios
+--------
+Secundario - Titulo: Perito Mercantil - Institucion Hipolito Vieytes Comercial Nro 3.
+Bachellor - Titulo: General Education Develoment - GED - USA, California. 
+Cetificado - DBA Oracle 8i.
+
+Idiomas
+-------
+Español nativo
+Ingles lecto/escritura.
+
+Experiencia
+-----------
+
+Trabaje en empresas de tecnologia y consultoras de sistemas de informacion. Las tareas
+a desempeñadas fueron consultoria en base de datos Oracle, Programacion en FORM , PRO*C,
+REPORTS y PL/SQL. En cosultoria principalmente en instalacion de motores Oracle, Capacity plannig y performance de motor Oracle, Backup and Recovery, Replicacion y Tuning de SQL. Como programador implementacion de sistemas de Presupuestos y Customer Service. 
+Conocimento del lenguaje JAVA y patrones de diseño grasp. Tambien conocimeinto de python.
+Como emprededor desarrollo prototipo de sistema de negociacion con una API de persisencia
+propio.Varios proyecto en java como impresiones de documentos y stock valorizado.
+Tambien un procesador de Texto donde escribi este curriculum.. La ultima compra desarollo de sistema offline para notarios. Esrituras legales.
+
+Objetivo
+--------
+Llevar mis ideas tecnologicas a una empresa dinamica y no burocratica para facilitar y reducir
+los costos de tareas repetitivas. Automatizado la mayor parte del proceso.
+
+Seminario/Cursos
+----------------
+Enterprise Architecture - Las Vegas USA.
+Ciencia de Datos - Platzi.
+
+Herramientas
+------------
+RDBMS: Oracle - Postgresql
+Lenguajes: PLSQL,FORMS,PRO*C,REPORTS,JAVA,PYTHON,C++, C.
+Office: Word,Excel,PowerPoint,ACCESS.
+FrameWork:JavaFX.
+Sistemas Operativos: unix,linux,windows.
+Integracion: git, cmake, make, maven.
