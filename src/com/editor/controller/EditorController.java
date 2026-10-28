@@ -220,7 +220,37 @@ public class EditorController {
             }
         }
     }
+    
+    @FXML
+    private void handleExecuteCommand() {
+        Tab selectedTab = tabPane.getSelectionModel().getSelectedItem();
+        if (selectedTab != null) {
+            TabState state = (TabState) selectedTab.getProperties().get("tabState");
+            if (state != null) {
+                javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog();
+                dialog.setTitle("Intérprete de Comandos");
+                dialog.setHeaderText("Ingrese su comando (ej: create tabla col columna1 formato fecha)");
+                dialog.setContentText("Comando:");
 
+                java.util.Optional<String> result = dialog.showAndWait();
+                result.ifPresent(cmd -> {
+                    // Traducir el texto usando el parser
+                    String translatedText = com.editor.parser.CommandParser.parseCommand(cmd);
+
+                    // Insertar el resultado traducido en la posición actual del cursor
+                    Font dynamicFont = Font.font(currentFontName, currentFontSize);
+                    for (int i = 0; i < translatedText.length(); i++) {
+                        char c = translatedText.charAt(i);
+                        state.buffer.insert(state.cursorIndex + i, new StyledChar(c, dynamicFont, currentColor));
+                    }
+                    
+                    state.cursorIndex += translatedText.length();
+                    ensureCursorVisible(state);
+                    renderBufferToCanvas(state);
+                });
+            }
+        }
+    }
     private void saveBufferToCna(TabState state, File file) {
         try {
             StringBuilder sb = new StringBuilder();

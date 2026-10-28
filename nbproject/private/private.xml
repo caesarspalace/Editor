@@ -8,6 +8,7 @@
             <file>file:/home/tuxedo/projectos/Editor/src/com/editor/controller/EditorController.java</file>
             <file>file:/home/tuxedo/projectos/Editor/src/com/editor/AppMain.java</file>
             <file>file:/home/tuxedo/projectos/Editor/src/com/editor/editor_view.fxml</file>
+            <file>file:/home/tuxedo/projectos/Editor/src/com/editor/parser/CommandParser.java</file>
         </group>
     </open-files>
 </project-private>
