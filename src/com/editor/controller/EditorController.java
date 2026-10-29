@@ -59,7 +59,12 @@ public class EditorController {
         List<CharPos> charPositions = new ArrayList<>();
         private ScrollBar scrollBar;
         public boolean isProgrammaticChange = false;
-        public boolean isUserDragging = false;      
+        public boolean isUserDragging = false;
+
+        // Variables para selección de texto
+        int selectionStart = -1;
+        int selectionEnd = -1;
+        boolean isSelectingWithMouse = false;
     }
 
     private static class CharPos {
@@ -114,6 +119,18 @@ public class EditorController {
         });
 
         createNewEmptyTab("Sin título");
+
+        // Listener global para asegurar que al cambiar de pestaña el Canvas recupere el foco
+        tabPane.getSelectionModel().selectedItemProperty().addListener((obs, oldTab, newTab) -> {
+            if (newTab != null) {
+                Platform.runLater(() -> {
+                    TabState state = (TabState) newTab.getProperties().get("tabState");
+                    if (state != null && state.canvas != null) {
+                        state.canvas.requestFocus();
+                    }
+                });
+            }
+        });
     }
 
     private void requestFocusOnActiveCanvas() {
@@ -221,39 +238,33 @@ public class EditorController {
         }
     }
     
-  @FXML
+    @FXML
     private void handleExecuteCommand() {
         Tab selectedTab = tabPane.getSelectionModel().getSelectedItem();
         if (selectedTab != null) {
             TabState state = (TabState) selectedTab.getProperties().get("tabState");
             if (state != null) {
-                // Crear un diálogo personalizado con TextArea
                 javafx.scene.control.Dialog<String> dialog = new javafx.scene.control.Dialog<>();
                 dialog.setTitle("Traducir Comando SQL");
                 dialog.setHeaderText("Ingrese las instrucciones para traducir a SQL:");
 
-                // Configurar botones del diálogo (Ejecutar y Cancelar)
                 javafx.scene.control.ButtonType executeBtnType = new javafx.scene.control.ButtonType("Traducir e Insertar", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
                 dialog.getDialogPane().getButtonTypes().addAll(executeBtnType, javafx.scene.control.ButtonType.CANCEL);
 
-                // Crear el TextArea para soporte multilínea
                 javafx.scene.control.TextArea textArea = new javafx.scene.control.TextArea();
                 textArea.setPromptText("Ejemplo:\ncreate tabla1 columna fecha formato fecha columna nombre formato texto");
                 textArea.setPrefRowCount(6);
                 textArea.setPrefColumnCount(40);
                 textArea.setWrapText(true);
 
-                // Contenedor principal del diálogo
                 javafx.scene.layout.VBox vbox = new javafx.scene.layout.VBox(10);
                 vbox.setPadding(new javafx.geometry.Insets(15));
                 vbox.getChildren().addAll(new javafx.scene.control.Label("Comando:"), textArea);
 
                 dialog.getDialogPane().setContent(vbox);
 
-                // Enfocar el TextArea automáticamente al abrir
                 Platform.runLater(textArea::requestFocus);
 
-                // Convertir el resultado al presionar el botón de ejecución
                 dialog.setResultConverter(dialogButton -> {
                     if (dialogButton == executeBtnType) {
                         return textArea.getText();
@@ -265,10 +276,8 @@ public class EditorController {
                 result.ifPresent(cmd -> {
                     if (cmd.trim().isEmpty()) return;
 
-                    // Traducir el comando con el parser
                     String translated = com.editor.parser.CommandParser.parseCommand(cmd);
 
-                    // Insertar la salida traducida en el CircularBuffer en la posición del cursor
                     Font dynamicFont = Font.font(currentFontName, currentFontSize);
                     for (int i = 0; i < translated.length(); i++) {
                         char c = translated.charAt(i);
@@ -279,9 +288,14 @@ public class EditorController {
                     ensureCursorVisible(state);
                     renderBufferToCanvas(state);
                 });
+
+                if (state.canvas != null) {
+                    Platform.runLater(state.canvas::requestFocus);
+                }
             }
         }
     }
+
     private void saveBufferToCna(TabState state, File file) {
         try {
             StringBuilder sb = new StringBuilder();
@@ -554,64 +568,126 @@ public class EditorController {
             return json.substring(startIdx, idx).trim();
         }
     }
-    
+
     private void setupCanvasInteractivity(TabState state) {
         Canvas canvas = state.canvas;
         canvas.setFocusTraversable(true);
 
-        canvas.setOnKeyTyped(event -> {
-            String character = event.getCharacter();
-            if (!character.isEmpty()) {
-                char c = character.charAt(0);
-                if (c >= 32 || c == '\n' || c == '\t') {
-                    Font dynamicFont = Font.font(currentFontName, currentFontSize);
-                    state.buffer.insert(state.cursorIndex, new StyledChar(c, dynamicFont, currentColor));
-                    state.cursorIndex++;
-                    ensureCursorVisible(state);
-                    renderBufferToCanvas(state);
-                }
+        // --- MANEJO DEL MOUSE (SELECCIÓN POR ARRASTRE) ---
+        canvas.setOnMousePressed(e -> {
+            canvas.requestFocus(); // Forzar el foco de inmediato al hacer clic
+            handleCanvasMouseClick(e, state);
+            state.selectionStart = state.cursorIndex;
+            state.selectionEnd = state.cursorIndex;
+            state.isSelectingWithMouse = true;
+            renderBufferToCanvas(state);
+            canvas.requestFocus(); // Asegurar el foco también tras el render
+        });
+
+        canvas.setOnMouseDragged(e -> {
+            if (state.isSelectingWithMouse) {
+                handleCanvasMouseClick(e, state);
+                state.selectionEnd = state.cursorIndex;
+                renderBufferToCanvas(state);
             }
         });
 
+        canvas.setOnMouseReleased(e -> {
+            state.isSelectingWithMouse = false;
+            canvas.requestFocus(); // Devolver el foco al soltar el mouse
+        });
+
+        // --- MANEJO DE TECLAS Y ATAJOS ---
         canvas.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.BACK_SPACE) {
-                if (state.cursorIndex > 0) {
-                    state.buffer.delete(state.cursorIndex - 1);
-                    state.cursorIndex--;
+            if (event.isShortcutDown()) {
+                if (event.getCode() == KeyCode.C) {
+                    copySelectedText(state);
+                    canvas.requestFocus();
+                    event.consume();
+                    return;
+                } else if (event.getCode() == KeyCode.V) {
+                    pasteFromClipboard(state);
+                    canvas.requestFocus();
+                    event.consume();
+                    return;
+                } else if (event.getCode() == KeyCode.X) {
+                    copySelectedText(state);
+                    deleteSelection(state);
                     ensureCursorVisible(state);
                     renderBufferToCanvas(state);
+                    canvas.requestFocus();
+                    event.consume();
+                    return;
+                } else if (event.getCode() == KeyCode.A) {
+                    state.selectionStart = 0;
+                    state.selectionEnd = state.buffer.getSize();
+                    renderBufferToCanvas(state);
+                    canvas.requestFocus();
+                    event.consume();
+                    return;
                 }
+            }
+
+            if (event.getCode() == KeyCode.BACK_SPACE) {
+                if (!deleteSelection(state)) {
+                    if (state.cursorIndex > 0) {
+                        state.buffer.delete(state.cursorIndex - 1);
+                        state.cursorIndex--;
+                    }
+                }
+                ensureCursorVisible(state);
+                renderBufferToCanvas(state);
+                canvas.requestFocus();
                 event.consume();
             } else if (event.getCode() == KeyCode.ENTER) {
+                deleteSelection(state);
                 Font dynamicFont = Font.font(currentFontName, currentFontSize);
                 state.buffer.insert(state.cursorIndex, new StyledChar('\n', dynamicFont, currentColor));
                 state.cursorIndex++;
                 ensureCursorVisible(state);
                 renderBufferToCanvas(state);
+                canvas.requestFocus();
                 event.consume();
-            } else if (event.getCode() == KeyCode.LEFT) {
-                if (state.cursorIndex > 0) {
+            } else if (event.getCode() == KeyCode.LEFT || event.getCode() == KeyCode.RIGHT) {
+                if (!event.isShiftDown()) {
+                    state.selectionStart = -1;
+                    state.selectionEnd = -1;
+                }
+                if (event.getCode() == KeyCode.LEFT && state.cursorIndex > 0) {
                     state.cursorIndex--;
-                    ensureCursorVisible(state);
-                    renderBufferToCanvas(state);
-                }
-                event.consume();
-            } else if (event.getCode() == KeyCode.RIGHT) {
-                if (state.cursorIndex < state.buffer.getSize()) {
+                } else if (event.getCode() == KeyCode.RIGHT && state.cursorIndex < state.buffer.getSize()) {
                     state.cursorIndex++;
-                    ensureCursorVisible(state);
-                    renderBufferToCanvas(state);
                 }
-                event.consume();
+                ensureCursorVisible(state);
+                renderBufferToCanvas(state);
+                canvas.requestFocus();
             } else if (event.getCode() == KeyCode.UP || event.getCode() == KeyCode.DOWN) {
+                if (!event.isShiftDown()) {
+                    state.selectionStart = -1;
+                    state.selectionEnd = -1;
+                }
                 navigateVertical(state, event.getCode() == KeyCode.UP ? -1 : 1);
                 ensureCursorVisible(state);
                 renderBufferToCanvas(state);
-                event.consume();
+                canvas.requestFocus();
             }
         });
 
-        canvas.setOnMouseClicked(e -> handleCanvasMouseClick(e, state));
+        canvas.setOnKeyTyped(event -> {
+            String character = event.getCharacter();
+            if (!character.isEmpty() && !event.isShortcutDown()) {
+                char c = character.charAt(0);
+                if (c >= 32 || c == '\t' || c == '\r' || c == '\n') {
+                    deleteSelection(state);
+                    Font dynamicFont = Font.font(currentFontName, currentFontSize);
+                    state.buffer.insert(state.cursorIndex, new StyledChar(c, dynamicFont, currentColor));
+                    state.cursorIndex++;
+                    ensureCursorVisible(state);
+                    renderBufferToCanvas(state);
+                    canvas.requestFocus();
+                }
+            }
+        });
     }
 
     private void ensureCursorVisible(TabState state) {
@@ -746,6 +822,14 @@ public class EditorController {
                 state.charPositions.add(new CharPos(globalLogicalIndex, x, y, currentLine));
                 i++;
                 continue;
+            }
+
+            int selMin = Math.min(state.selectionStart, state.selectionEnd);
+            int selMax = Math.max(state.selectionStart, state.selectionEnd);
+
+            if (state.selectionStart != -1 && state.selectionEnd != -1 && i >= selMin && i < selMax) {
+                gc.setFill(Color.LIGHTBLUE);
+                gc.fillRect(x, y - 16, sc.getFontSize() * 0.65, 20);
             }
 
             gc.setFont(Font.font(sc.getFontName(), sc.getFontSize()));
@@ -921,6 +1005,9 @@ public class EditorController {
                 } else {
                     System.out.println("No se encontró ninguna impresora disponible en el sistema.");
                 }
+                if (state.canvas != null) {
+                    Platform.runLater(state.canvas::requestFocus);
+                }
             }
         }
     }
@@ -950,27 +1037,6 @@ public class EditorController {
         } catch (Exception e) {
             return "#000000";
         }
-    }
-
-    private java.util.List<String> extractLinesFromBuffer(CircularBuffer buffer) {
-        List<String> lines = new ArrayList<>();
-        StringBuilder currentLine = new StringBuilder();
-        
-        int size = buffer.getSize();
-        for (int i = 0; i < size; i++) {
-            StyledChar sc = buffer.get(i);
-            if (sc != null) {
-                char c = sc.getCharacter();
-                if (c == '\n') {
-                    lines.add(currentLine.toString());
-                    currentLine = new StringBuilder();
-                } else {
-                    currentLine.append(c);
-                }
-            }
-        }
-        lines.add(currentLine.toString());
-        return lines;
     }
     
     @FXML
@@ -1017,6 +1083,10 @@ public class EditorController {
                         alert.showAndWait();
                     }
                 });
+
+                if (state.canvas != null) {
+                    Platform.runLater(state.canvas::requestFocus);
+                }
             }
         }
     }
@@ -1104,9 +1174,14 @@ public class EditorController {
                         alert.showAndWait();
                     }
                 });
+
+                if (state.canvas != null) {
+                    Platform.runLater(state.canvas::requestFocus);
+                }
             }
         }
     }
+
     private void handleCanvasMouseClick(javafx.scene.input.MouseEvent event, TabState state) {
         if (state.charPositions.isEmpty()) return;
 
@@ -1116,13 +1191,7 @@ public class EditorController {
         CharPos closestChar = null;
         double minDistance = Double.MAX_VALUE;
 
-        // Buscar el carácter más cercano a las coordenadas del clic dentro de las posiciones renderizadas
         for (CharPos cp : state.charPositions) {
-            // Estimamos una pequeña caja de acierto por carácter (ancho aproximado de 10px y alto de 22px)
-            double charWidth = 10.0; 
-            double charHeight = 22.0;
-
-            // Distancia euclidiana o proximidad visual
             if (clickY >= cp.y - 18 && clickY <= cp.y + 4) {
                 double distX = Math.abs(cp.x - clickX);
                 if (distX < minDistance) {
@@ -1135,7 +1204,6 @@ public class EditorController {
         if (closestChar != null) {
             state.cursorIndex = closestChar.logicalIndex;
         } else {
-            // Si hace clic en un espacio vacío al final de una línea, lo mandamos al final de las posiciones visibles
             closestChar = state.charPositions.get(state.charPositions.size() - 1);
             state.cursorIndex = closestChar.logicalIndex;
         }
@@ -1143,5 +1211,60 @@ public class EditorController {
         ensureCursorVisible(state);
         renderBufferToCanvas(state);
         state.canvas.requestFocus();
+    }
+
+    private void copySelectedText(TabState state) {
+        if (state.selectionStart != -1 && state.selectionEnd != -1 && state.selectionStart != state.selectionEnd) {
+            int start = Math.min(state.selectionStart, state.selectionEnd);
+            int end = Math.max(state.selectionStart, state.selectionEnd);
+
+            StringBuilder sb = new StringBuilder();
+            for (int i = start; i < end; i++) {
+                StyledChar sc = state.buffer.get(i);
+                if (sc != null) {
+                    sb.append(sc.getCharacter());
+                }
+            }
+
+            javafx.scene.input.ClipboardContent content = new javafx.scene.input.ClipboardContent();
+            content.putString(sb.toString());
+            javafx.scene.input.Clipboard.getSystemClipboard().setContent(content);
+        }
+    }
+
+    private void pasteFromClipboard(TabState state) {
+        javafx.scene.input.Clipboard clipboard = javafx.scene.input.Clipboard.getSystemClipboard();
+        if (clipboard.hasString()) {
+            deleteSelection(state);
+            String text = clipboard.getString();
+            Font dynamicFont = Font.font(currentFontName, currentFontSize);
+
+            for (int i = 0; i < text.length(); i++) {
+                char c = text.charAt(i);
+                state.buffer.insert(state.cursorIndex, new StyledChar(c, dynamicFont, currentColor));
+                state.cursorIndex++;
+            }
+
+            ensureCursorVisible(state);
+            renderBufferToCanvas(state);
+        }
+    }
+
+    private boolean deleteSelection(TabState state) {
+        if (state.selectionStart != -1 && state.selectionEnd != -1 && state.selectionStart != state.selectionEnd) {
+            int start = Math.min(state.selectionStart, state.selectionEnd);
+            int end = Math.max(state.selectionStart, state.selectionEnd);
+
+            int count = end - start;
+            for (int i = 0; i < count; i++) {
+                state.buffer.delete(start);
+            }
+
+            state.cursorIndex = start;
+            state.selectionStart = -1;
+            state.selectionEnd = -1;
+            return true;
+        }
+        return false;
     }
 }
