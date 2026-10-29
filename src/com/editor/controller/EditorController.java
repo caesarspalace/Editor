@@ -649,29 +649,49 @@ public class EditorController {
                 canvas.requestFocus();
                 event.consume();
             } else if (event.getCode() == KeyCode.LEFT || event.getCode() == KeyCode.RIGHT) {
-                if (!event.isShiftDown()) {
+                if (event.isShiftDown()) {
+                    if (state.selectionStart == -1) {
+                        state.selectionStart = state.cursorIndex;
+                    }
+                } else {
                     state.selectionStart = -1;
                     state.selectionEnd = -1;
                 }
+
                 if (event.getCode() == KeyCode.LEFT && state.cursorIndex > 0) {
                     state.cursorIndex--;
                 } else if (event.getCode() == KeyCode.RIGHT && state.cursorIndex < state.buffer.getSize()) {
                     state.cursorIndex++;
                 }
+
+                if (event.isShiftDown()) {
+                    state.selectionEnd = state.cursorIndex;
+                }
+
                 ensureCursorVisible(state);
                 renderBufferToCanvas(state);
-                event.consume();
                 canvas.requestFocus();
+                event.consume();
             } else if (event.getCode() == KeyCode.UP || event.getCode() == KeyCode.DOWN) {
-                if (!event.isShiftDown()) {
+                if (event.isShiftDown()) {
+                    if (state.selectionStart == -1) {
+                        state.selectionStart = state.cursorIndex;
+                    }
+                } else {
                     state.selectionStart = -1;
                     state.selectionEnd = -1;
                 }
+
                 navigateVertical(state, event.getCode() == KeyCode.UP ? -1 : 1);
+
+                if (event.isShiftDown()) {
+                    state.selectionEnd = state.cursorIndex;
+                }
+
                 ensureCursorVisible(state);
                 renderBufferToCanvas(state);
-                event.consume();
                 canvas.requestFocus();
+                event.consume();
             }
         });
 
