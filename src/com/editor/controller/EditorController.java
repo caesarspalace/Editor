@@ -669,6 +669,7 @@ public class EditorController {
                 navigateVertical(state, event.getCode() == KeyCode.UP ? -1 : 1);
                 ensureCursorVisible(state);
                 renderBufferToCanvas(state);
+                event.consume();
                 canvas.requestFocus();
             }
         });
