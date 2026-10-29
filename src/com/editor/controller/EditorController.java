@@ -221,30 +221,61 @@ public class EditorController {
         }
     }
     
-    @FXML
+  @FXML
     private void handleExecuteCommand() {
         Tab selectedTab = tabPane.getSelectionModel().getSelectedItem();
         if (selectedTab != null) {
             TabState state = (TabState) selectedTab.getProperties().get("tabState");
             if (state != null) {
-                javafx.scene.control.TextInputDialog dialog = new javafx.scene.control.TextInputDialog();
-                dialog.setTitle("Intérprete de Comandos");
-                dialog.setHeaderText("Ingrese su comando (ej: create tabla col columna1 formato fecha)");
-                dialog.setContentText("Comando:");
+                // Crear un diálogo personalizado con TextArea
+                javafx.scene.control.Dialog<String> dialog = new javafx.scene.control.Dialog<>();
+                dialog.setTitle("Traducir Comando SQL");
+                dialog.setHeaderText("Ingrese las instrucciones para traducir a SQL:");
+
+                // Configurar botones del diálogo (Ejecutar y Cancelar)
+                javafx.scene.control.ButtonType executeBtnType = new javafx.scene.control.ButtonType("Traducir e Insertar", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+                dialog.getDialogPane().getButtonTypes().addAll(executeBtnType, javafx.scene.control.ButtonType.CANCEL);
+
+                // Crear el TextArea para soporte multilínea
+                javafx.scene.control.TextArea textArea = new javafx.scene.control.TextArea();
+                textArea.setPromptText("Ejemplo:\ncreate tabla1 columna fecha formato fecha columna nombre formato texto");
+                textArea.setPrefRowCount(6);
+                textArea.setPrefColumnCount(40);
+                textArea.setWrapText(true);
+
+                // Contenedor principal del diálogo
+                javafx.scene.layout.VBox vbox = new javafx.scene.layout.VBox(10);
+                vbox.setPadding(new javafx.geometry.Insets(15));
+                vbox.getChildren().addAll(new javafx.scene.control.Label("Comando:"), textArea);
+
+                dialog.getDialogPane().setContent(vbox);
+
+                // Enfocar el TextArea automáticamente al abrir
+                Platform.runLater(textArea::requestFocus);
+
+                // Convertir el resultado al presionar el botón de ejecución
+                dialog.setResultConverter(dialogButton -> {
+                    if (dialogButton == executeBtnType) {
+                        return textArea.getText();
+                    }
+                    return null;
+                });
 
                 java.util.Optional<String> result = dialog.showAndWait();
                 result.ifPresent(cmd -> {
-                    // Traducir el texto usando el parser
-                    String translatedText = com.editor.parser.CommandParser.parseCommand(cmd);
+                    if (cmd.trim().isEmpty()) return;
 
-                    // Insertar el resultado traducido en la posición actual del cursor
+                    // Traducir el comando con el parser
+                    String translated = com.editor.parser.CommandParser.parseCommand(cmd);
+
+                    // Insertar la salida traducida en el CircularBuffer en la posición del cursor
                     Font dynamicFont = Font.font(currentFontName, currentFontSize);
-                    for (int i = 0; i < translatedText.length(); i++) {
-                        char c = translatedText.charAt(i);
-                        state.buffer.insert(state.cursorIndex + i, new StyledChar(c, dynamicFont, currentColor));
+                    for (int i = 0; i < translated.length(); i++) {
+                        char c = translated.charAt(i);
+                        state.buffer.insert(state.cursorIndex, new StyledChar(c, dynamicFont, currentColor));
+                        state.cursorIndex++;
                     }
-                    
-                    state.cursorIndex += translatedText.length();
+
                     ensureCursorVisible(state);
                     renderBufferToCanvas(state);
                 });
