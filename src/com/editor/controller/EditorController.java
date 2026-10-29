@@ -660,6 +660,7 @@ public class EditorController {
                 }
                 ensureCursorVisible(state);
                 renderBufferToCanvas(state);
+                event.consume();
                 canvas.requestFocus();
             } else if (event.getCode() == KeyCode.UP || event.getCode() == KeyCode.DOWN) {
                 if (!event.isShiftDown()) {
