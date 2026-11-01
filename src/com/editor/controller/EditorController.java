@@ -642,8 +642,45 @@ public class EditorController {
             } else if (event.getCode() == KeyCode.ENTER) {
                 deleteSelection(state);
                 Font dynamicFont = Font.font(currentFontName, currentFontSize);
+                
+                // 1. Insertar el salto de línea
                 state.buffer.insert(state.cursorIndex, new StyledChar('\n', dynamicFont, currentColor));
                 state.cursorIndex++;
+
+                // 2. Buscar el inicio de la línea actual para copiar su indentación (espacios o tabs)
+                int lineStartIdx = state.cursorIndex - 2; // Retroceder antes del \n recién insertado
+                while (lineStartIdx >= 0) {
+                    StyledChar sc = state.buffer.get(lineStartIdx);
+                    if (sc != null && sc.getCharacter() == '\n') {
+                        lineStartIdx++; // Encontramos el salto anterior, avanzamos al inicio de la línea
+                        break;
+                    }
+                    if (lineStartIdx == 0) {
+                        break; // Llegamos al inicio del documento
+                    }
+                    lineStartIdx--;
+                }
+
+                // 3. Copiar los espacios o tabulaciones iniciales de esa línea
+                StringBuilder indentation = new StringBuilder();
+                for (int i = Math.max(0, lineStartIdx); i < state.buffer.getSize(); i++) {
+                    StyledChar sc = state.buffer.get(i);
+                    if (sc != null && (sc.getCharacter() == ' ' || sc.getCharacter() == '\t')) {
+                        indentation.append(sc.getCharacter());
+                    } else {
+                        break;
+                    }
+                }
+
+                // 4. Insertar la misma indentación en la nueva línea
+                if (indentation.length() > 0) {
+                    String indentStr = indentation.toString();
+                    for (int i = 0; i < indentStr.length(); i++) {
+                        state.buffer.insert(state.cursorIndex, new StyledChar(indentStr.charAt(i), dynamicFont, currentColor));
+                        state.cursorIndex++;
+                    }
+                }
+
                 ensureCursorVisible(state);
                 renderBufferToCanvas(state);
                 canvas.requestFocus();
@@ -692,10 +729,21 @@ public class EditorController {
                 renderBufferToCanvas(state);
                 canvas.requestFocus();
                 event.consume();
+            } else if (event.getCode() == KeyCode.DELETE) {
+                if (!deleteSelection(state)) {
+                    if (state.cursorIndex < state.buffer.getSize()) {
+                        state.buffer.delete(state.cursorIndex);
+                        // Nota: El cursorIndex no cambia al borrar hacia adelante
+                    }
+                }
+                ensureCursorVisible(state);
+                renderBufferToCanvas(state);
+                canvas.requestFocus();
+                event.consume();
             }
         });
 
-        canvas.setOnKeyTyped(event -> {
+       /* canvas.setOnKeyTyped(event -> {
             String character = event.getCharacter();
             if (!character.isEmpty() && !event.isShortcutDown()) {
                 char c = character.charAt(0);
@@ -707,6 +755,33 @@ public class EditorController {
                     ensureCursorVisible(state);
                     renderBufferToCanvas(state);
                     canvas.requestFocus();
+                    event.consume();
+                }
+            }
+        });*/
+       canvas.setOnKeyTyped(event -> {
+            String character = event.getCharacter();
+           if (event.getCode() == KeyCode.DELETE) {
+               event.consume();
+               return;
+           }
+            if (!character.isEmpty() && !event.isShortcutDown()) {
+                char c = character.charAt(0);
+                
+                // Ignorar caracteres de control o invisibles (como códigos de control de Delete/Backspace)
+                if (c == 127 ||(c < 32 && c != '\t' && c != '\r' && c != '\n'))  {
+                    return;
+                }
+
+                if (c >= 32 || c == '\t' || c == '\r' || c == '\n') {
+                    deleteSelection(state);
+                    Font dynamicFont = Font.font(currentFontName, currentFontSize);
+                    state.buffer.insert(state.cursorIndex, new StyledChar(c, dynamicFont, currentColor));
+                    state.cursorIndex++;
+                    ensureCursorVisible(state);
+                    renderBufferToCanvas(state);
+                    canvas.requestFocus();
+                    event.consume();
                 }
             }
         });
