@@ -1004,7 +1004,7 @@ public class EditorController {
             gc.strokeLine(cursorCharPos.x, cursorCharPos.y - 14, cursorCharPos.x, cursorCharPos.y + 4);
         }
     }
-
+    
     @FXML
     private void handlePrint() {
         Tab selectedTab = tabPane.getSelectionModel().getSelectedItem();
@@ -1027,17 +1027,20 @@ public class EditorController {
 
                         boolean success = true;
                         int currentCharIndex = 0;
+                        int pageCount = 0;
+
+                        // Altura de línea estimada segura según el tamaño de fuente actual
+                        double baseFontSize = currentFontSize > 0 ? currentFontSize : 14.0;
+                        double estimatedLineHeight = baseFontSize * 1.4;
+                        int maxLinesPerPage = Math.max(15, (int)((printableHeight - 50) / estimatedLineHeight));
 
                         while (currentCharIndex < size && success) {
                             TextFlow pageFlow = new TextFlow();
                             pageFlow.setPrefWidth(printableWidth);
                             pageFlow.setMaxWidth(printableWidth);
 
-                            double estimatedLineHeight = 16.0;
-                            double maxAllowedHeight = printableHeight - 50;
                             int linesInCurrentPage = 0;
-                            
-                            int maxLinesPerPage = Math.max(5, (int) (maxAllowedHeight / estimatedLineHeight));
+                            boolean pageHasContent = false;
 
                             while (currentCharIndex < size && linesInCurrentPage < maxLinesPerPage) {
                                 StyledChar firstSc = state.buffer.get(currentCharIndex);
@@ -1052,7 +1055,9 @@ public class EditorController {
 
                                 StringBuilder styleBatchText = new StringBuilder();
                                 int tempIndex = currentCharIndex;
+                                int newlinesInBatch = 0;
 
+                                // Agrupar caracteres consecutivos con idéntico estilo
                                 while (tempIndex < size) {
                                     StyledChar nextSc = state.buffer.get(tempIndex);
                                     if (nextSc == null) break;
@@ -1070,31 +1075,42 @@ public class EditorController {
                                     tempIndex++;
 
                                     if (c == '\n') {
-                                        linesInCurrentPage++;
+                                        newlinesInBatch++;
                                         break;
                                     }
                                 }
 
                                 Text textNode = new Text(styleBatchText.toString());
-                                textNode.setFont(javafx.scene.text.Font.font(currentFontFamily, currentFontSize));
-                                textNode.setFill(javafx.scene.paint.Color.web(currentColor));
+                                textNode.setFont(Font.font(currentFontFamily, currentFontSize));
+                                textNode.setFill(Color.web(currentColor));
 
                                 pageFlow.getChildren().add(textNode);
                                 currentCharIndex = tempIndex;
+                                pageHasContent = true;
+
+                                // Estimación de líneas considerando el ancho del texto respecto al ancho de la hoja
+                                double approxCharsPerLine = Math.max(10, printableWidth / (currentFontSize * 0.55));
+                                int wrappedLines = (int) Math.ceil(styleBatchText.length() / approxCharsPerLine);
+                                linesInCurrentPage += Math.max(1, Math.max(newlinesInBatch, wrappedLines));
                             }
 
-                            pageFlow.applyCss();
-                            pageFlow.layout();
-
-                            success = job.printPage(pageFlow);
+                            if (pageHasContent) {
+                                pageFlow.applyCss();
+                                pageFlow.layout();
+                                success = job.printPage(pageFlow);
+                                pageCount++;
+                                System.out.println("Enviando página " + pageCount + " a impresora...");
+                            } else {
+                                break;
+                            }
                         }
 
                         if (success) {
                             job.endJob();
-                            System.out.println("¡Todas las páginas del archivo fueron enviadas a CUPS con éxito!");
+                            System.out.println("¡Impresión finalizada con éxito! Total de páginas enviadas: " + pageCount);
                         } else {
-                            System.out.println("La impresión falló durante el proceso.");
                             job.endJob();
+                            System.out.println("La impresión falló durante el proceso.");
                         }
                     } else {
                         job.endJob();
@@ -1108,6 +1124,7 @@ public class EditorController {
             }
         }
     }
+    
 
     private String getSafeFontFamily(StyledChar sc) {
         try {

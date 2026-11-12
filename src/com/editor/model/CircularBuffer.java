@@ -16,6 +16,7 @@ public class CircularBuffer {
 
     public int getSize() { return size; }
     public int getPageSize() { return pageSize; }
+    public int getCapacity() { return capacity; }
 
     public StyledChar get(int logicalIndex) {
         if (logicalIndex < 0 || logicalIndex >= size) return null;
